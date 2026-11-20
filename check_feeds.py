@@ -40,6 +40,9 @@ OG_RE = re.compile(
     r"""|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image["']""",
     re.I,
 )
+EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3\U000E0020-\U000E007F]"
+)
 IMG_RE = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.I)
 
 
@@ -130,14 +133,20 @@ def multipart(fields, file_field=None):
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
+def strip_emoji(text):
+    text = re.sub("[\u2B50\U0001F31F]\uFE0F?", "*", text)  # star ratings -> 4*
+    return re.sub(r"\s{2,}", " ", EMOJI_RE.sub("", text)).strip()
+
+
 def send_pushover(source, title, link, image_url=None):
+    title = strip_emoji(title)
     if os.environ.get("DRY_RUN") == "1":
         print(f"[dry-run] {source}: {title} -> {link} [img: {image_url}]")
         return
     fields = {
         "token": os.environ["PUSHOVER_TOKEN"],
         "user": os.environ["PUSHOVER_USER"],
-        "title": f"✈️ {source}",
+        "title": source,
         "message": title or "New deal",
         "url": link,
         "url_title": "View deal",

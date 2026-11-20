@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       test_push:
-        description: "Send a test Pushover notification"
+        description: "Also send the latest deal from each feed (format test)"
         type: boolean
         default: false
 
@@ -28,23 +28,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Send test notification
-        if: ${{ inputs.test_push }}
-        env:
-          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
-          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
-        run: |
-          curl -sS --fail \
-            --form-string "token=$PUSHOVER_TOKEN" \
-            --form-string "user=$PUSHOVER_USER" \
-            --form-string "title=✈️ Flight deal alerts" \
-            --form-string "message=Test notification - setup works" \
-            https://api.pushover.net/1/messages.json
-
       - name: Check feeds
         env:
           PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
           PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          TEST_LATEST: ${{ inputs.test_push && '1' || '0' }}
         run: python check_feeds.py
 
       - name: Save seen items

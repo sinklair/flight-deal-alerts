@@ -40,6 +40,7 @@ OG_RE = re.compile(
     r"""|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image["']""",
     re.I,
 )
+PLANE_RE = re.compile("[\u2708\U0001F6E9\U0001F6EB\U0001F6EC]\uFE0F?")
 IMG_RE = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.I)
 
 
@@ -130,7 +131,12 @@ def multipart(fields, file_field=None):
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
+def strip_planes(text):
+    return re.sub(r"\s{2,}", " ", PLANE_RE.sub("", text)).strip()
+
+
 def send_pushover(source, title, link, image_url=None):
+    title = strip_planes(title)
     if os.environ.get("DRY_RUN") == "1":
         print(f"[dry-run] {source}: {title} -> {link} [img: {image_url}]")
         return

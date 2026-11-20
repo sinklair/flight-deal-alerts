@@ -35,6 +35,11 @@ ATOM = "{http://www.w3.org/2005/Atom}"
 MEDIA = "{http://search.yahoo.com/mrss/}"
 CONTENT = "{http://purl.org/rss/1.0/modules/content/}"
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # Pushover attachment limit
+OG_RE = re.compile(
+    r"""<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']"""
+    r"""|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image["']""",
+    re.I,
+)
 IMG_RE = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.I)
 
 
@@ -82,6 +87,16 @@ def parse_items(xml_bytes):
     return items
 
 
+def page_image(link):
+    """Fallback when the feed has no image: the article's og:image."""
+    try:
+        html = fetch(link).decode("utf-8", "ignore")
+    except Exception:
+        return None
+    m = OG_RE.search(html)
+    return (m.group(1) or m.group(2)) if m else None
+
+
 def get_image(url):
     """Download image bytes for attachment; None on any problem."""
     if not url:
@@ -127,7 +142,7 @@ def send_pushover(source, title, link, image_url=None):
         "url": link,
         "url_title": "View deal",
     }
-    image = get_image(image_url)
+    image = get_image(image_url or page_image(link))
     body, ctype = multipart(fields, ("attachment", image) if image else None)
     req = urllib.request.Request(
         "https://api.pushover.net/1/messages.json", data=body, headers={"Content-Type": ctype}

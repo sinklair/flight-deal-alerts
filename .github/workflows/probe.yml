@@ -26,9 +26,15 @@ jobs:
               print(f"\n=== {url}")
               try:
                   raw = c.fetch(url)
-                  items = c.parse_items(raw)
               except Exception as e:
                   print(f"  FAIL: {e}"); continue
+              try:
+                  items = c.parse_items(raw)
+              except Exception as e:
+                  print(f"  PARSE FAIL: {e}")
+                  for n, line in enumerate(raw.decode("utf-8", "ignore").splitlines()[:12], 1):
+                      print(f"  {n:>3}: {line[:160]}")
+                  continue
               dates = re.findall(rb"<pubDate>([^<]+)</pubDate>", raw)
               print(f"  OK: {len(items)} items")
               for (g, t, l, img), d in zip(items[:6], dates[:6] + [b""] * 6):

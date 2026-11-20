@@ -1,0 +1,58 @@
+name: Check flight deals
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_push:
+        description: "Send a test Pushover notification"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: check-feeds
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Send test notification
+        if: ${{ inputs.test_push }}
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+        run: |
+          curl -sS --fail \
+            --form-string "token=$PUSHOVER_TOKEN" \
+            --form-string "user=$PUSHOVER_USER" \
+            --form-string "title=✈️ Flight deal alerts" \
+            --form-string "message=Test notification - setup works" \
+            https://api.pushover.net/1/messages.json
+
+      - name: Check feeds
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+        run: python check_feeds.py
+
+      - name: Save seen items
+        run: |
+          git config user.name "flight-deal-bot"
+          git config user.email "flight-deal-bot@users.noreply.github.com"
+          git add state/seen.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update seen items"
+            git push
+          fi

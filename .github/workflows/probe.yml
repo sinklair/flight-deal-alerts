@@ -1,0 +1,36 @@
+name: Probe feeds
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "Space-separated feed URLs to test"
+        required: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Probe
+        env:
+          URLS: ${{ inputs.urls }}
+        run: |
+          python - <<'PY'
+          import os, re, check_feeds as c
+          for url in os.environ["URLS"].split():
+              print(f"\n=== {url}")
+              try:
+                  raw = c.fetch(url)
+                  items = c.parse_items(raw)
+              except Exception as e:
+                  print(f"  FAIL: {e}"); continue
+              dates = re.findall(rb"<pubDate>([^<]+)</pubDate>", raw)
+              print(f"  OK: {len(items)} items")
+              for (g, t, l, img), d in zip(items[:6], dates[:6] + [b""] * 6):
+                  print(f"  - {d.decode()[:16]} | {t[:90]} | img={'y' if img else 'n'}")
+          PY
